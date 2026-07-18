@@ -60,7 +60,7 @@ results/
 *.bin
 *.safetensors
 checkpoints/
-models/
+model_weights/
 
 # Docker
 docker-compose.override.yml
