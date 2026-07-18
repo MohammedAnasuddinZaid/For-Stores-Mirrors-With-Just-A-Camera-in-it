@@ -14,13 +14,20 @@ interface ProductCardProps {
   status: string;
 }
 
+function resolveImageUrl(id: number | string, url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  return `/api/products/${id}/image`;
+}
+
 export function ProductCard({ id, name, imageUrl, category, brand, price, tryOnEnabled, status }: ProductCardProps) {
+  const src = resolveImageUrl(id, imageUrl);
   return (
     <Link href={`/products/${id}`} className="group block">
       <div className="bg-surface rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-gray-200 transition-all duration-200">
         <div className="relative aspect-[4/5] bg-gray-100 overflow-hidden">
           <img
-            src={imageUrl}
+            src={src}
             alt={name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"

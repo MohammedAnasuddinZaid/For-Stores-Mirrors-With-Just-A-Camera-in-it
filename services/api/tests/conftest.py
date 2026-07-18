@@ -21,6 +21,9 @@ def test_data_root(tmp_path: Path):
     os.environ["DATA_ROOT"] = str(tmp_path)
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_path.as_posix()}"
     os.environ["AI_ENGINE"] = "mock"
+    # Re-initialize settings so it picks up the test env vars
+    import app.core.config
+    app.core.config.settings = app.core.config.Settings()
     yield
     if old_data_root:
         os.environ["DATA_ROOT"] = old_data_root

@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import Optional
 import uuid
+import os
 from datetime import datetime, timezone
 
 from app.db.session import get_db
 from app.db.models.product import Product, ProductCategory, ProductStatus
 from app.api.v1.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.core.errors import NotFoundError, ValidationError, ConflictError
+from app.core.config import settings
 from app.storage.provider import StorageService
 
 router = APIRouter()
@@ -174,3 +177,21 @@ async def upload_product_image(
     await db.commit()
     await db.refresh(product)
     return product
+
+
+@router.get("/{product_id}/image")
+async def get_product_image(product_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Product).where(Product.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise NotFoundError("Product", product_id)
+    if not product.image_url:
+        raise NotFoundError("ProductImage", product_id)
+
+    storage_key = product.image_url
+    for base in [settings.GARMENT_ASSET_DIR, settings.UPLOAD_DIR]:
+        candidate = os.path.join(base, storage_key.replace("\\", "/"))
+        if os.path.isfile(candidate):
+            return FileResponse(candidate, media_type="image/jpeg")
+
+    raise NotFoundError("ProductImage", product_id)

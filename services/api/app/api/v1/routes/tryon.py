@@ -1,20 +1,27 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 import uuid
 import asyncio
+import os
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
 from app.core.errors import NotFoundError, ValidationError
 from app.core.config import settings
+from app.db.session import get_db
+from app.db.models.product import Product
 from app.inference.engine import TryOnEngineRouter, TryOnInput
+from app.storage.provider import StorageService
 
 router = APIRouter()
 engine_router = TryOnEngineRouter()
+storage = StorageService()
 
-# In-memory jobs (replace with database)
 try_on_jobs: dict = {}
 try_on_results: dict = {}
-
 
 class CreateTryOnRequest(BaseModel):
     product_id: str
@@ -38,7 +45,6 @@ async def create_try_on(session_id: str, request: CreateTryOnRequest):
     }
     try_on_jobs[job_id] = job
 
-    # Start background processing
     asyncio.create_task(process_try_on_job(job_id))
 
     return job
@@ -81,37 +87,104 @@ async def get_try_on_result(job_id: str):
     return result
 
 
+@router.get("/results/{job_id}/image")
+async def get_result_image(job_id: str):
+    result = try_on_results.get(job_id)
+    if not result:
+        raise NotFoundError("Result", job_id)
+
+    image_path = result.get("result_path", "")
+    if not image_path or not os.path.isfile(image_path):
+        raise NotFoundError("ResultImage", job_id)
+
+    return FileResponse(image_path, media_type="image/jpeg")
+
+
+@router.head("/results/{job_id}/image")
+async def head_result_image(job_id: str):
+    result = try_on_results.get(job_id)
+    if not result:
+        raise NotFoundError("Result", job_id)
+
+    image_path = result.get("result_path", "")
+    if not image_path or not os.path.isfile(image_path):
+        raise NotFoundError("ResultImage", job_id)
+
+    return FileResponse(image_path, media_type="image/jpeg")
+
+
 async def process_try_on_job(job_id: str):
     job = try_on_jobs.get(job_id)
     if not job:
         return
 
+    from app.db.session import async_session as AsyncSessionLocal
+    from app.api.v1.routes.sessions import person_images as sessions_person_images
+
     try:
         job["status"] = "PROCESSING"
         job["started_at"] = datetime.utcnow().isoformat()
 
-        # Process via engine router
-        engine = engine_router.get_engine()
+        person_image_id = job["person_image_id"]
+        product_id = job["product_id"]
+        session_id = job["session_id"]
+
+        person_img_record = sessions_person_images.get(person_image_id)
+        if not person_img_record:
+            raise ValueError(f"Person image {person_image_id} not found")
+
+        storage_key = person_img_record.get("storage_key", "")
+        person_image_path = os.path.join(
+            settings.GARMENT_ASSET_DIR, storage_key.replace("\\", "/")
+        )
+
+        if not os.path.isfile(person_image_path):
+            alt_path = os.path.join(settings.UPLOAD_DIR, storage_key.replace("\\", "/"))
+            if os.path.isfile(alt_path):
+                person_image_path = alt_path
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Product).where(Product.id == product_id))
+            product = result.scalar_one_or_none()
+
+        if not product:
+            raise ValueError(f"Product {product_id} not found")
+
+        category = product.category or "UPPER_BODY"
+        garment_key = product.image_url or ""
+        garment_image_path = ""
+        if garment_key:
+            garment_image_path = os.path.join(
+                settings.GARMENT_ASSET_DIR, garment_key.replace("\\", "/")
+            )
+            alt_garment = os.path.join(settings.UPLOAD_DIR, garment_key.replace("\\", "/"))
+            if os.path.isfile(alt_garment):
+                garment_image_path = alt_garment
+            elif not os.path.isfile(garment_image_path):
+                garment_image_path = ""
+
+        engine = engine_router.get_engine(category)
         input_data = TryOnInput(
-            person_image_path=f"session://{job['session_id']}/{job['person_image_id']}",
-            garment_image_path=f"product://{job['product_id']}",
-            category="UPPER_BODY",
-            session_id=job["session_id"],
+            person_image_path=person_image_path,
+            garment_image_path=garment_image_path,
+            category=category,
+            session_id=session_id,
+            options={"product_id": product_id},
         )
         output = await engine.execute(input_data)
 
-        # Store result
         result_id = str(uuid.uuid4())
-        result = {
+        result_record = {
             "id": result_id,
             "job_id": job_id,
             "engine_name": output.engine_name,
             "engine_version": output.engine_version,
             "processing_time_ms": output.processing_time_ms,
             "result_path": output.result_path,
+            "url": f"/api/results/{job_id}/image",
             "created_at": datetime.utcnow().isoformat(),
         }
-        try_on_results[job_id] = result
+        try_on_results[job_id] = result_record
 
         job["status"] = "SUCCEEDED"
         job["completed_at"] = datetime.utcnow().isoformat()

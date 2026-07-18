@@ -179,6 +179,10 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   if (error && step === 'ready') return <div className="min-h-screen bg-surface-secondary"><ErrorState message={error || 'Product not found'} onRetry={() => router.push('/products')} /></div>;
   if (!product) return <div className="min-h-screen bg-surface-secondary"><ErrorState message="Product not found" onRetry={() => router.push('/products')} /></div>;
 
+  const productImageSrc = product.image_url?.startsWith('http') || product.image_url?.startsWith('data:')
+    ? product.image_url
+    : `/api/products/${product.id}/image`;
+
   return (
     <div className="min-h-screen bg-surface-secondary">
       {/* Navigation */}
@@ -211,7 +215,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
           {/* Product Preview */}
           <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100">
             {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+              <img src={productImageSrc} alt={product.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-text-tertiary">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

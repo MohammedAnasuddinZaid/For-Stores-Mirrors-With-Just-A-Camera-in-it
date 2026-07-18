@@ -46,16 +46,40 @@ def test_create_session(client: TestClient):
 
 def test_tryon_flow(client: TestClient):
     """Full try-on flow: session → upload → create job → poll result."""
+    import pathlib
+    fixture_path = pathlib.Path(__file__).parent.parent / "test_fixture.jpg"
+    if not fixture_path.exists():
+        from PIL import Image
+        img = Image.new("RGB", (100, 100), color="red")
+        img.save(str(fixture_path), "JPEG")
+    image_bytes = fixture_path.read_bytes()
+
     # Create session
     r = client.post("/api/v1/sessions", json={})
     assert r.status_code == 200
     session = r.json()
     session_id = session["id"]
 
+    # Create a product for the try-on
+    r = client.post(
+        "/api/v1/products",
+        json={
+            "name": "Test Shirt",
+            "category": "UPPER_BODY",
+            "brand": "TestBrand",
+            "price": 29.99,
+            "status": "PUBLISHED",
+            "try_on_enabled": True,
+        },
+    )
+    assert r.status_code == 201
+    product = r.json()
+    product_id = product["id"]
+
     # Upload person image
     r = client.post(
         f"/api/v1/sessions/{session_id}/person-images",
-        files={"image": ("test.jpg", b"fake-image-data", "image/jpeg")},
+        files={"image": ("test.jpg", image_bytes, "image/jpeg")},
     )
     assert r.status_code == 200
     person_image = r.json()
@@ -65,7 +89,7 @@ def test_tryon_flow(client: TestClient):
     r = client.post(
         f"/api/v1/sessions/{session_id}/try-ons",
         json={
-            "product_id": "prod_001",
+            "product_id": product_id,
             "person_image_id": person_image_id,
         },
     )
