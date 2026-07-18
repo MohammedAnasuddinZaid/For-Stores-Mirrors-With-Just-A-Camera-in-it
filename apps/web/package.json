@@ -9,11 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.18",
+    "@tailwindcss/postcss": "^4.3.3",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.170.0",
-    "@mediapipe/tasks-vision": "^0.10.18"
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
