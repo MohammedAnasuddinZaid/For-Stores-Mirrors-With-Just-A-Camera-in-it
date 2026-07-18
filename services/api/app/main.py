@@ -52,3 +52,9 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", settings.API_PORT))
+    uvicorn.run("app.main:app", host=settings.API_HOST, port=port, reload=False)
