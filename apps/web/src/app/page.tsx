@@ -1,389 +1,174 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { CameraView } from '../components/camera/camera-view';
-import type { VisionAnalysis } from '../types';
-
-type AppStep = 'welcome' | 'camera' | 'products' | 'try-on' | 'result';
-
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  imageUrl: string;
-  price: number;
-}
-
-const sampleProducts: Product[] = [
-  { id: '1', name: 'Classic Blazer', category: 'UPPER_BODY', imageUrl: '/products/blazer.jpg', price: 149 },
-  { id: '2', name: 'Summer Dress', category: 'DRESS', imageUrl: '/products/dress.jpg', price: 89 },
-  { id: '3', name: 'Denim Jacket', category: 'UPPER_BODY', imageUrl: '/products/jacket.jpg', price: 129 },
-  { id: '4', name: 'Casual Shirt', category: 'UPPER_BODY', imageUrl: '/products/shirt.jpg', price: 59 },
-  { id: '5', name: 'Wide Leg Pants', category: 'LOWER_BODY', imageUrl: '/products/pants.jpg', price: 79 },
-  { id: '6', name: 'Aviator Sunglasses', category: 'GLASSES', imageUrl: '/products/aviator.jpg', price: 199 },
-  { id: '7', name: 'Baseball Cap', category: 'HAT', imageUrl: '/products/cap.jpg', price: 35 },
-  { id: '8', name: 'Leather Tote', category: 'OTHER', imageUrl: '/products/tote.jpg', price: 249 },
-];
-
-const PRODUCT_IMAGES: Record<string, string> = {
-  '1': 'https://placehold.co/400x500/3b82f6/ffffff?text=Blazer',
-  '2': 'https://placehold.co/400x500/ec4899/ffffff?text=Dress',
-  '3': 'https://placehold.co/400x500/6366f1/ffffff?text=Jacket',
-  '4': 'https://placehold.co/400x500/14b8a6/ffffff?text=Shirt',
-  '5': 'https://placehold.co/400x500/8b5cf6/ffffff?text=Pants',
-  '6': 'https://placehold.co/400x500/f59e0b/ffffff?text=Sunglasses',
-  '7': 'https://placehold.co/400x500/ef4444/ffffff?text=Cap',
-  '8': 'https://placehold.co/400x500/84cc16/ffffff?text=Tote',
-};
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Product, ProductListResponse } from '@/types';
+import { ProductCard } from '@/components/ui/product-card';
+import { Button } from '@/components/ui/button';
+import { LoadingState } from '@/components/ui/loading-state';
 
 export default function HomePage() {
-  const [currentStep, setCurrentStep] = useState<AppStep>('welcome');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [visionAnalysis, setVisionAnalysis] = useState<VisionAnalysis | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [tryOnResult, setTryOnResult] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'standard' | 'ar-glasses'>('standard');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCapture = useCallback((dataUrl: string) => {
-    setCapturedImage(dataUrl);
-    setCurrentStep('products');
-  }, []);
-
-  const handleProductSelect = useCallback((product: Product) => {
-    setSelectedProduct(product);
-    if (product.category === 'GLASSES') {
-      setMode('ar-glasses');
-      setCurrentStep('try-on');
-    } else {
-      setCurrentStep('try-on');
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch('/api/products?page=1&limit=8');
+        if (!res.ok) throw new Error('Failed to load products');
+        const data: ProductListResponse = await res.json();
+        setProducts(data.items.filter(p => p.status === 'PUBLISHED'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load');
+      } finally {
+        setLoading(false);
+      }
     }
+    fetchProducts();
   }, []);
 
-  const handleStartTryOn = useCallback(async () => {
-    if (!capturedImage || !selectedProduct) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // Simulate AI inference delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // For demo, combine person image with product overlay
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
-      const img = new Image();
-
-      await new Promise<void>((resolve) => {
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          // Draw person with a simulated try-on overlay
-          ctx.drawImage(img, 0, 0);
-          // Draw a semi-transparent overlay indicating the garment
-          ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
-          ctx.fillRect(canvas.width * 0.2, canvas.height * 0.25, canvas.width * 0.6, canvas.height * 0.45);
-          ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-          ctx.font = 'bold 24px sans-serif';
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.fillText(`✨ ${selectedProduct.name} ✨`, canvas.width / 2, canvas.height / 2);
-          resolve();
-        };
-        img.src = capturedImage;
-      });
-
-      setTryOnResult(canvas.toDataURL('image/jpeg', 0.9));
-      setCurrentStep('result');
-    } catch (err) {
-      setError('Failed to generate try-on result. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [capturedImage, selectedProduct]);
-
-  const handleReset = useCallback(() => {
-    setCapturedImage(null);
-    setSelectedProduct(null);
-    setTryOnResult(null);
-    setError(null);
-    setVisionAnalysis(null);
-    setCurrentStep('welcome');
-    setIsProcessing(false);
-  }, []);
-
-  const categories = [...new Set(sampleProducts.map(p => p.category))];
-
-  if (currentStep === 'welcome') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col items-center justify-center p-4">
-        <div className="text-center max-w-lg">
-          <div className="text-6xl mb-6">🪞</div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
-            Virtual Try-On Mirror
-          </h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Try on clothes, glasses, and accessories<br />
-            using just your camera — instantly and free.
-          </p>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="card p-4 text-center">
-              <div className="text-3xl mb-2">📸</div>
-              <h3 className="font-semibold text-sm">Take a Photo</h3>
-              <p className="text-xs text-gray-500 mt-1">Use your camera to capture yourself</p>
-            </div>
-            <div className="card p-4 text-center">
-              <div className="text-3xl mb-2">👔</div>
-              <h3 className="font-semibold text-sm">Choose Style</h3>
-              <p className="text-xs text-gray-500 mt-1">Browse our catalog and pick a product</p>
-            </div>
-            <div className="card p-4 text-center">
-              <div className="text-3xl mb-2">✨</div>
-              <h3 className="font-semibold text-sm">Try It On</h3>
-              <p className="text-xs text-gray-500 mt-1">See how it looks on you instantly</p>
-            </div>
+  return (
+    <div className="min-h-screen">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+        <div className="container-wide flex items-center justify-between h-16">
+          <Link href="/" className="text-lg font-bold tracking-tight">
+            VirtualTry<span className="text-brand-600">On</span>
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/mirror" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+              Mirror Mode
+            </Link>
+            <Link href="/products">
+              <Button size="sm">Browse</Button>
+            </Link>
           </div>
-
-          <button
-            onClick={() => setCurrentStep('camera')}
-            className="btn-primary text-lg px-10 py-4"
-          >
-            Start Try-On
-          </button>
-
-          <p className="text-xs text-gray-400 mt-4">
-            Camera processing stays on your device • No account needed
-          </p>
         </div>
-      </div>
-    );
-  }
+      </nav>
 
-  if (currentStep === 'camera') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={handleReset} className="text-gray-600 hover:text-gray-900">
-              ← Back
-            </button>
-            <h2 className="text-xl font-semibold">Take a Photo</h2>
-            <div className="w-12" />
-          </div>
-          <CameraView
-            onCapture={handleCapture}
-            onVisionUpdate={setVisionAnalysis}
-            autoStart={true}
-            mirrored={true}
-          />
-          {visionAnalysis && (
-            <div className="mt-3 text-center text-sm text-gray-500">
-              {visionAnalysis.message}
+      {/* Hero */}
+      <section className="relative pt-32 pb-20 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-50 via-white to-brand-50/50" />
+        <div className="absolute top-20 right-0 w-96 h-96 bg-brand-200/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-20 w-72 h-72 bg-brand-300/20 rounded-full blur-3xl" />
+        <div className="container-wide relative">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-100 text-brand-700 text-xs font-medium rounded-full mb-6">
+              <span className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse" />
+              No app download required
             </div>
-          )}
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-4">
+              Try Before You
+              <span className="text-brand-600 block">Buy — Virtually</span>
+            </h1>
+            <p className="text-lg text-text-secondary leading-relaxed max-w-lg mb-8">
+              Use your camera to see how clothes, accessories, and eyewear look on you.
+              No downloads, no sign-up, just your browser.
+            </p>
+            <div className="flex items-center gap-3">
+              <Link href="/products">
+                <Button size="xl">
+                  Browse Collection
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Button>
+              </Link>
+              <Link href="/mirror">
+                <Button variant="outline" size="xl">
+                  Mirror Mode
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
-      </div>
-    );
-  }
+      </section>
 
-  if (currentStep === 'products') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 pb-24">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <button onClick={() => setCurrentStep('camera')} className="text-gray-600 hover:text-gray-900">
-              ← Retake Photo
-            </button>
-            <h2 className="text-xl font-semibold">Choose a Product</h2>
-            <div className="w-16" />
-          </div>
-
-          {/* Category filters */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-            <button
-              onClick={() => {}}
-              className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm whitespace-nowrap font-medium"
-            >
-              All
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-full text-sm whitespace-nowrap font-medium hover:bg-gray-50"
-              >
-                {cat.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-
-          {/* Product grid */}
-          <div className="product-grid">
-            {sampleProducts.map(product => (
-              <button
-                key={product.id}
-                onClick={() => handleProductSelect(product)}
-                className="card group text-left"
-              >
-                <div className="aspect-[4/5] bg-gray-100 relative overflow-hidden">
-                  <img
-                    src={PRODUCT_IMAGES[product.id]}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute top-2 left-2">
-                    <span className="px-2 py-1 bg-white/90 rounded-lg text-xs font-medium text-gray-700">
-                      {product.category.replace('_', ' ')}
-                    </span>
-                  </div>
+      {/* How It Works */}
+      <section className="py-20">
+        <div className="container-wide">
+          <h2 className="text-2xl font-bold text-center mb-12">How It Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { step: '01', title: 'Choose a Product', desc: 'Browse our catalog and pick something you like.' },
+              { step: '02', title: 'Take a Photo', desc: 'Use your camera or upload a photo. We handle the rest.' },
+              { step: '03', title: 'See It On You', desc: 'AI shows you how the product looks in seconds.' },
+            ].map(item => (
+              <div key={item.step} className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-brand-100 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-brand-600">{item.step}</span>
                 </div>
-                <div className="p-3">
-                  <h3 className="font-medium text-gray-900 text-sm">{product.name}</h3>
-                  <p className="text-blue-600 font-semibold text-sm mt-1">${product.price}</p>
-                </div>
-              </button>
+                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                <p className="text-sm text-text-secondary">{item.desc}</p>
+              </div>
             ))}
           </div>
         </div>
-      </div>
-    );
-  }
+      </section>
 
-  if (currentStep === 'try-on') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setCurrentStep('products')} className="text-gray-600 hover:text-gray-900">
-              ← Change Product
-            </button>
-            <h2 className="text-xl font-semibold">Try-On Preview</h2>
-            <div className="w-24" />
+      {/* Featured Products */}
+      <section className="py-20 bg-surface-secondary">
+        <div className="container-wide">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold">Featured Products</h2>
+              <p className="text-sm text-text-secondary mt-1">Try on any item with your camera</p>
+            </div>
+            <Link href="/products">
+              <Button variant="ghost" size="sm">
+                View All
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Button>
+            </Link>
           </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {/* Person image */}
-            <div className="card">
-              <div className="aspect-[3/4] bg-gray-100">
-                {capturedImage && (
-                  <img
-                    src={capturedImage}
-                    alt="You"
-                    className="w-full h-full object-cover mirror"
-                  />
-                )}
-              </div>
-              <div className="p-2 text-center text-xs text-gray-500">Your Photo</div>
+          {loading ? (
+            <LoadingState message="Loading products..." />
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-text-secondary mb-4">{error}</p>
+              <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
             </div>
-
-            {/* Product */}
-            <div className="card">
-              <div className="aspect-[3/4] bg-gray-100">
-                {selectedProduct && (
-                  <img
-                    src={PRODUCT_IMAGES[selectedProduct.id]}
-                    alt={selectedProduct.name}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-              <div className="p-2 text-center text-xs text-gray-500">
-                {selectedProduct?.name}
-              </div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-secondary">No products available yet.</p>
             </div>
-          </div>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          <button
-            onClick={handleStartTryOn}
-            disabled={isProcessing}
-            className="btn-primary w-full text-lg"
-          >
-            {isProcessing ? 'Generating...' : '✨ Try This On'}
-          </button>
-
-          {isProcessing && (
-            <div className="mt-4 text-center">
-              <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2" />
-              <p className="text-sm text-gray-500">
-                AI is generating your virtual try-on...
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (currentStep === 'result') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={handleReset} className="text-gray-600 hover:text-gray-900">
-              ← Start Over
-            </button>
-            <h2 className="text-xl font-semibold">Your Try-On Result</h2>
-            <div className="w-20" />
-          </div>
-
-          <div className="card mb-6">
-            <div className="aspect-[3/4] bg-gray-100">
-              {tryOnResult && (
-                <img
-                  src={tryOnResult}
-                  alt="Try-On Result"
-                  className="w-full h-full object-cover mirror"
+          ) : (
+            <div className="product-grid">
+              {products.map(product => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  imageUrl={product.image_url}
+                  category={product.category}
+                  brand={product.brand}
+                  price={product.price}
+                  tryOnEnabled={product.try_on_enabled}
+                  status={product.status}
                 />
-              )}
-            </div>
-          </div>
-
-          {selectedProduct && (
-            <div className="card p-4 mb-6">
-              <h3 className="font-semibold text-lg">{selectedProduct.name}</h3>
-              <p className="text-blue-600 font-semibold">${selectedProduct.price}</p>
-              {selectedProduct.category !== 'GLASSES' && selectedProduct.category !== 'HAT' && (
-                <p className="text-xs text-gray-400 mt-2">
-                  ✨ This is an AI-generated preview. Actual product may vary.
-                </p>
-              )}
+              ))}
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setCurrentStep('products')}
-              className="btn-secondary"
-            >
-              Try Another
-            </button>
-            <button
-              onClick={() => setCurrentStep('camera')}
-              className="btn-primary"
-            >
-              New Photo
-            </button>
-          </div>
-
-          <button
-            onClick={handleReset}
-            className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-700"
-          >
-            Start fresh
-          </button>
         </div>
-      </div>
-    );
-  }
+      </section>
 
-  return null;
+      {/* Footer */}
+      <footer className="py-12 border-t border-gray-100">
+        <div className="container-wide">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-text-tertiary">
+              VirtualTryOn — Zero-cost AI virtual try-on platform
+            </p>
+            <div className="flex items-center gap-6 text-xs text-text-tertiary">
+              <Link href="/products">Products</Link>
+              <Link href="/mirror">Mirror Mode</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 }

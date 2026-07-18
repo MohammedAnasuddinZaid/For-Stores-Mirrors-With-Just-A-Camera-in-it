@@ -1,50 +1,105 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f8fafc;
+  --color-surface-tertiary: #f1f5f9;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 24px 60px rgba(15, 23, 42, 0.16);
+}
 
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
   }
-  
-  html, body {
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
     overscroll-behavior: none;
     touch-action: manipulation;
   }
-}
 
-@layer components {
-  .btn-primary {
-    @apply px-6 py-3 bg-blue-600 text-white rounded-xl font-medium 
-           hover:bg-blue-700 active:bg-blue-800 
-           transition-all duration-200 
-           disabled:opacity-50 disabled:cursor-not-allowed
-           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
-  }
-
-  .btn-secondary {
-    @apply px-6 py-3 bg-gray-100 text-gray-800 rounded-xl font-medium 
-           hover:bg-gray-200 active:bg-gray-300 
-           transition-all duration-200
-           focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
-  }
-
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden
-           hover:shadow-md transition-shadow duration-200;
-  }
-
-  .product-grid {
-    @apply grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4;
+  ::selection {
+    background-color: var(--color-brand-200);
+    color: var(--color-brand-900);
   }
 }
 
-@layer utilities {
-  .mirror {
-    transform: scaleX(-1);
+@utility container-wide {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@utility container-narrow {
+  max-width: 1024px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@utility product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+
+  @media (width >= 640px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
   }
 
-  .no-mirror {
-    transform: scaleX(1);
+  @media (width >= 1024px) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@utility mirror {
+  transform: scaleX(-1);
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
