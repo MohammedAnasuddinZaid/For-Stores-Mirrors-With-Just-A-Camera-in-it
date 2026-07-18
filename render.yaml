@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: virtual-try-on-api
+    runtime: python
+    repo: https://github.com/MohammedAnasuddinZaid/For-Stores-Mirrors-With-Just-A-Camera-in-it
+    rootDir: services/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.main
+    plan: free
+    envVars:
+      - key: DATA_ROOT
+        value: /var/data/virtual-try-on
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:////var/data/virtual-try-on/db.sqlite3
+      - key: AI_ENGINE
+        value: mock
+      - key: CORS_ORIGINS
+        value: https://your-web-app.vercel.app,https://your-admin.vercel.app
+      - key: PYTHON_VERSION
+        value: 3.12.0
