@@ -1,0 +1,18 @@
+{
+  "name": "virtual-try-on-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zero-cost AI virtual try-on platform for stores",
+  "scripts": {
+    "dev": "concurrently -n API,WEB,ADMIN -c blue,green,yellow \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:admin\"",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:admin": "cd apps/admin && npm run dev",
+    "dev:api": "cd services/api && python -m app.main",
+    "build": "cd apps/web && npm run build && cd ../admin && npm run build",
+    "install:all": "cd apps/web && npm install && cd ../admin && npm install && cd ../../services/api && pip install -r requirements.txt",
+    "test": "cd services/api && python -m pytest tests/ -v"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
