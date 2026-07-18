@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  html, body {
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-blue-600 text-white rounded-xl font-medium 
+           hover:bg-blue-700 active:bg-blue-800 
+           transition-all duration-200 
+           disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-gray-100 text-gray-800 rounded-xl font-medium 
+           hover:bg-gray-200 active:bg-gray-300 
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden
+           hover:shadow-md transition-shadow duration-200;
+  }
+
+  .product-grid {
+    @apply grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4;
+  }
+}
+
+@layer utilities {
+  .mirror {
+    transform: scaleX(-1);
+  }
+
+  .no-mirror {
+    transform: scaleX(1);
+  }
+}

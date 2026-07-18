@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+target/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+.build/
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+logs/
+
+# Data directories (D: drive is configured separately)
+data/
+temp/
+uploads/
+results/
+
+# Large model files
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+checkpoints/
+models/
+
+# Docker
+docker-compose.override.yml
+
+# Testing
+coverage/
+.coverage
+htmlcov/
+.vitest/
