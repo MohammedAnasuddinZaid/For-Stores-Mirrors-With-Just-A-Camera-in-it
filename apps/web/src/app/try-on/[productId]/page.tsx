@@ -29,7 +29,6 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const engineRef = useRef<TryOnEngineManager | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +40,10 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   const [selectedCategory, setSelectedCategory] = useState<TryOnCategory>('eyewear');
   const [engineStatus, setEngineStatus] = useState<string>('');
   const [detecting, setDetecting] = useState(false);
+
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!engineRef.current) {
@@ -68,6 +71,29 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
       }
     })();
   }, [productId]);
+
+  const renderCurrentProduct = useCallback(async (catalogProduct: CatalogProduct) => {
+    if (!engineRef.current || !engineRef.current.hasFaceLandmarks()) return;
+
+    setRendering(true);
+    setRenderError(null);
+    setResultUrl(null);
+
+    try {
+      await engineRef.current.loadProductImage(catalogProduct);
+      const result = engineRef.current.renderProduct(catalogProduct, { mirrorMode: false });
+
+      if (result) {
+        setResultUrl(result.toDataURL('image/jpeg', 0.92));
+      } else {
+        setRenderError('Failed to render product on image');
+      }
+    } catch (err) {
+      setRenderError(String(err));
+    } finally {
+      setRendering(false);
+    }
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
@@ -109,11 +135,9 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      setCapturedImage(dataUrl);
+    reader.onload = (event) => {
+      setCapturedImage(event.target?.result as string);
       setStep('captured');
     };
     reader.readAsDataURL(file);
@@ -121,7 +145,6 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
 
   const detectFace = useCallback(async () => {
     if (!capturedImage || !engineRef.current) return;
-
     setDetecting(true);
     setStep('detecting');
 
@@ -131,18 +154,13 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
       if (result) {
         setLandmarks(result);
 
-        const personImg = engineRef.current.getCachedPersonImage();
-        if (personImg) {
-          imageRef.current = personImg;
-        }
-
         const catalog = getCatalog();
         await catalog.load();
         const defaultProduct = catalog.getProduct(productId);
         if (defaultProduct) {
           setSelectedCatalogProduct(defaultProduct);
           setSelectedCategory(defaultProduct.category);
-          await engineRef.current.loadProductImage(defaultProduct);
+          await renderCurrentProduct(defaultProduct);
         }
 
         setStep('selecting');
@@ -156,29 +174,30 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
     } finally {
       setDetecting(false);
     }
-  }, [capturedImage, productId]);
+  }, [capturedImage, productId, renderCurrentProduct]);
 
-  const handleCategoryChange = useCallback(
-    async (category: TryOnCategory) => {
-      setSelectedCategory(category);
-      setSelectedCatalogProduct(null);
-    },
-    []
-  );
+  const handleCategoryChange = useCallback(async (category: TryOnCategory) => {
+    setSelectedCategory(category);
+    setSelectedCatalogProduct(null);
+    setResultUrl(null);
+    setRenderError(null);
+  }, []);
 
   const handleProductSelect = useCallback(
     async (catalogProduct: CatalogProduct) => {
       setSelectedCatalogProduct(catalogProduct);
-      if (engineRef.current) {
-        try {
-          await engineRef.current.loadProductImage(catalogProduct);
-        } catch (err) {
-          console.error('Failed to load product image:', err);
-        }
-      }
+      await renderCurrentProduct(catalogProduct);
     },
-    []
+    [renderCurrentProduct]
   );
+
+  const handleDownload = useCallback(() => {
+    if (!resultUrl) return;
+    const a = document.createElement('a');
+    a.href = resultUrl;
+    a.download = `tryon-${selectedCatalogProduct?.id || 'result'}.jpg`;
+    a.click();
+  }, [resultUrl, selectedCatalogProduct]);
 
   const resetAll = useCallback(() => {
     setCapturedImage(null);
@@ -189,6 +208,8 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
     setError(null);
     setEngineStatus('');
     setDetecting(false);
+    setResultUrl(null);
+    setRenderError(null);
     if (engineRef.current) {
       engineRef.current.clearCache();
     }
@@ -215,10 +236,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   if (error && step === 'ready') {
     return (
       <div className="min-h-screen bg-surface-secondary">
-        <ErrorState
-          message={error || 'Product not found'}
-          onRetry={() => router.push('/products')}
-        />
+        <ErrorState message={error || 'Product not found'} onRetry={() => router.push('/products')} />
       </div>
     );
   }
@@ -226,10 +244,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
   if (!product) {
     return (
       <div className="min-h-screen bg-surface-secondary">
-        <ErrorState
-          message="Product not found"
-          onRetry={() => router.push('/products')}
-        />
+        <ErrorState message="Product not found" onRetry={() => router.push('/products')} />
       </div>
     );
   }
@@ -243,25 +258,17 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
     <div className="min-h-screen bg-surface-secondary">
       <nav className="bg-white border-b border-gray-100">
         <div className="container-wide flex items-center justify-between h-16">
-          <Link
-            href="/"
-            className="text-lg font-bold tracking-tight"
-          >
+          <Link href="/" className="text-lg font-bold tracking-tight">
             VirtualTry<span className="text-brand-600">On</span>
           </Link>
           <div className="flex items-center gap-3">
             {step !== 'ready' && (
-              <button
-                onClick={resetAll}
-                className="text-sm text-text-secondary hover:text-text-primary transition-colors"
-              >
+              <button onClick={resetAll} className="text-sm text-text-secondary hover:text-text-primary transition-colors">
                 Start Over
               </button>
             )}
             <Link href="/products">
-              <Button variant="ghost" size="sm">
-                ← Products
-              </Button>
+              <Button variant="ghost" size="sm">← Products</Button>
             </Link>
           </div>
         </div>
@@ -276,21 +283,10 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100">
             {product.image_url ? (
-              <img
-                src={productImageSrc}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+              <img src={productImageSrc} alt={product.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-text-tertiary">
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" />
                   <path d="M9 3v18M3 9h18" />
                 </svg>
@@ -302,16 +298,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
             {step === 'ready' && (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="w-20 h-20 rounded-2xl bg-brand-100 flex items-center justify-center mb-6">
-                  <svg
-                    width="36"
-                    height="36"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--color-brand-600)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand-600)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
                     <circle cx="12" cy="13" r="4" />
                   </svg>
@@ -332,12 +319,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
                       </svg>
                       Upload Photo
                     </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   </label>
                 </div>
               </div>
@@ -345,13 +327,7 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
 
             {step === 'camera' && (
               <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-black">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover mirror"
-                />
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
                 <div className="absolute bottom-6 left-0 right-0 flex justify-center">
                   <button
                     onClick={capturePhoto}
@@ -369,16 +345,10 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
             {step === 'captured' && capturedImage && (
               <div className="flex flex-col items-center justify-center h-full text-center py-4">
                 <div className="w-full max-w-sm aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 mb-4">
-                  <img
-                    src={capturedImage}
-                    alt="Captured"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={startCamera}>
-                    Retake
-                  </Button>
+                  <Button variant="outline" onClick={startCamera}>Retake</Button>
                   <Button onClick={detectFace} disabled={detecting}>
                     {detecting ? 'Detecting...' : 'Try On Now'}
                   </Button>
@@ -404,31 +374,24 @@ export default function TryOnPage({ params }: { params: Promise<{ productId: str
                     onProductSelect={handleProductSelect}
                   />
                 </div>
-                {selectedCatalogProduct && imageRef.current && landmarks && (
-                  <div className="mt-4">
-                    <TryOnView
-                      personImage={imageRef.current}
-                      product={selectedCatalogProduct}
-                      landmarks={landmarks}
-                      mirrorMode={false}
-                      onClose={resetAll}
-                    />
-                  </div>
-                )}
-                {!selectedCatalogProduct && (
-                  <div className="mt-8 text-center text-sm text-text-tertiary py-8">
-                    Select a product above to see the result
-                  </div>
-                )}
+                <div className="mt-4">
+                  <TryOnView
+                    personImageUrl={capturedImage}
+                    resultUrl={resultUrl}
+                    productName={selectedCatalogProduct?.name || ''}
+                    loading={rendering}
+                    error={renderError}
+                    mirrorMode={false}
+                    onClose={resetAll}
+                    onDownload={handleDownload}
+                  />
+                </div>
               </div>
             )}
 
             {step === 'error' && (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <ErrorState
-                  message={error || 'Something went wrong'}
-                  onRetry={resetAll}
-                />
+                <ErrorState message={error || 'Something went wrong'} onRetry={resetAll} />
               </div>
             )}
           </div>

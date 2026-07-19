@@ -34,14 +34,14 @@
       "fitProfile": {
         "anchorType": "eyes",
         "widthMode": "interpupillary_distance",
-        "widthMultiplier": 2.3,
-        "verticalOffset": 0.02,
+        "widthMultiplier": 2.6,
+        "verticalOffset": 0.0,
         "rotationOffset": 0,
         "imageContentBounds": {
-          "left": 0.06,
-          "top": 0.1,
-          "right": 0.94,
-          "bottom": 0.85
+          "left": 0.1146,
+          "top": 0.3162,
+          "right": 0.8847,
+          "bottom": 0.9350
         }
       }
     },
@@ -57,14 +57,14 @@
       "fitProfile": {
         "anchorType": "eyes",
         "widthMode": "interpupillary_distance",
-        "widthMultiplier": 2.5,
-        "verticalOffset": 0.01,
+        "widthMultiplier": 2.8,
+        "verticalOffset": 0.0,
         "rotationOffset": 0,
         "imageContentBounds": {
-          "left": 0.05,
-          "top": 0.08,
-          "right": 0.95,
-          "bottom": 0.88
+          "left": 0.1146,
+          "top": 0.3162,
+          "right": 0.8847,
+          "bottom": 0.9350
         }
       }
     },

@@ -4,42 +4,6 @@ interface RenderOptions {
   mirrorMode?: boolean;
 }
 
-function computeVisibleBounds(
-  img: HTMLImageElement | HTMLCanvasElement
-): { x: number; y: number; w: number; h: number } | null {
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.drawImage(img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-
-  let minX = canvas.width;
-  let minY = canvas.height;
-  let maxX = 0;
-  let maxY = 0;
-
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      const idx = (y * canvas.width + x) * 4;
-      const alpha = data[idx + 3];
-      if (alpha > 30) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-
-  if (maxX === 0 && maxY === 0) return null;
-
-  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
-}
-
 class ExponentialSmoother {
   private alpha: number;
   private valueX: number | null = null;
@@ -52,28 +16,19 @@ class ExponentialSmoother {
   }
 
   smoothX(raw: number): number {
-    if (this.valueX === null) {
-      this.valueX = raw;
-      return raw;
-    }
+    if (this.valueX === null) { this.valueX = raw; return raw; }
     this.valueX = this.alpha * raw + (1 - this.alpha) * this.valueX;
     return this.valueX;
   }
 
   smoothY(raw: number): number {
-    if (this.valueY === null) {
-      this.valueY = raw;
-      return raw;
-    }
+    if (this.valueY === null) { this.valueY = raw; return raw; }
     this.valueY = this.alpha * raw + (1 - this.alpha) * this.valueY;
     return this.valueY;
   }
 
   smoothAngle(raw: number): number {
-    if (this.valueAngle === null) {
-      this.valueAngle = raw;
-      return raw;
-    }
+    if (this.valueAngle === null) { this.valueAngle = raw; return raw; }
     const diff = raw - this.valueAngle;
     const wrappedDiff = Math.atan2(Math.sin(diff), Math.cos(diff));
     this.valueAngle += this.alpha * wrappedDiff;
@@ -81,10 +36,7 @@ class ExponentialSmoother {
   }
 
   smoothScale(raw: number): number {
-    if (this.valueScale === null) {
-      this.valueScale = raw;
-      return raw;
-    }
+    if (this.valueScale === null) { this.valueScale = raw; return raw; }
     this.valueScale = this.alpha * raw + (1 - this.alpha) * this.valueScale;
     return this.valueScale;
   }
@@ -123,13 +75,29 @@ export class GlassesFittingEngine {
     });
   }
 
+  private getSourceCrop(
+    image: HTMLImageElement,
+    fitProfile: ProductFitProfile
+  ): { x: number; y: number; w: number; h: number } {
+    const bounds = fitProfile.imageContentBounds;
+    if (!bounds) {
+      return { x: 0, y: 0, w: image.width, h: image.height };
+    }
+    return {
+      x: Math.round(bounds.left * image.width),
+      y: Math.round(bounds.top * image.height),
+      w: Math.round((bounds.right - bounds.left) * image.width),
+      h: Math.round((bounds.bottom - bounds.top) * image.height),
+    };
+  }
+
   renderGlasses(
     personImage: HTMLImageElement,
     glassesImage: HTMLImageElement,
     landmarks: FaceLandmarks,
     fitProfile: ProductFitProfile,
     options: RenderOptions = {}
-    ): HTMLCanvasElement | null {
+  ): HTMLCanvasElement | null {
     const canvas = document.createElement('canvas');
     canvas.width = landmarks.imageWidth;
     canvas.height = landmarks.imageHeight;
@@ -138,39 +106,35 @@ export class GlassesFittingEngine {
 
     ctx.drawImage(personImage, 0, 0);
 
-    const bounds = computeVisibleBounds(glassesImage);
-    if (!bounds) return null;
-
-    const srcWidth = bounds.w;
-    const srcHeight = bounds.h;
-    const srcCenterX = bounds.x + srcWidth / 2;
-    const srcCenterY = bounds.y + srcHeight / 2;
+    const crop = this.getSourceCrop(glassesImage, fitProfile);
 
     let eyeMidX = landmarks.eyeMidpoint.x * landmarks.imageWidth;
     let eyeMidY = landmarks.eyeMidpoint.y * landmarks.imageHeight;
-    const ipdPixels = landmarks.interpupillaryDistance * landmarks.imageWidth;
 
+    const ipdPixels = landmarks.interpupillaryDistance * landmarks.imageWidth;
     const faceWidthPixels = landmarks.faceWidth * landmarks.imageWidth;
 
     eyeMidY += fitProfile.verticalOffset * faceWidthPixels;
 
-    const glassesWidth = ipdPixels * fitProfile.widthMultiplier;
-    const scale = glassesWidth / srcWidth;
+    const destWidth = ipdPixels * fitProfile.widthMultiplier;
+    const destHeight = (crop.h / crop.w) * destWidth;
 
-    const angle = landmarks.eyeLineAngle + fitProfile.rotationOffset;
+    let angle = landmarks.eyeLineAngle + fitProfile.rotationOffset;
 
     if (options.mirrorMode) {
       eyeMidX = landmarks.imageWidth - eyeMidX;
+      angle = -angle;
     }
 
     ctx.save();
     ctx.translate(eyeMidX, eyeMidY);
     ctx.rotate(angle);
-    ctx.scale(scale, scale);
-    ctx.translate(-srcCenterX, -srcCenterY);
-
-    ctx.drawImage(glassesImage, 0, 0);
-
+    ctx.drawImage(
+      glassesImage,
+      crop.x, crop.y, crop.w, crop.h,
+      -destWidth / 2, -destHeight / 2,
+      destWidth, destHeight
+    );
     ctx.restore();
 
     return canvas;
@@ -197,22 +161,14 @@ export class GlassesFittingEngine {
         x: this.smoother.smoothX(landmarks.eyeMidpoint.x),
         y: this.smoother.smoothY(landmarks.eyeMidpoint.y),
       },
-      interpupillaryDistance: this.smoother.smoothScale(
-        landmarks.interpupillaryDistance
-      ),
+      interpupillaryDistance: this.smoother.smoothScale(landmarks.interpupillaryDistance),
       eyeLineAngle: this.smoother.smoothAngle(landmarks.eyeLineAngle),
     };
 
     this.lastLandmarks = landmarks;
     this.frozenFrameCount = 0;
 
-    return this.renderGlasses(
-      personImage,
-      glassesImage,
-      smoothed,
-      fitProfile,
-      options
-    );
+    return this.renderGlasses(personImage, glassesImage, smoothed, fitProfile, options);
   }
 
   renderFrozen(
@@ -222,34 +178,8 @@ export class GlassesFittingEngine {
     options: RenderOptions = {}
   ): HTMLCanvasElement | null {
     if (!this.lastLandmarks) return null;
-
     this.frozenFrameCount++;
-    if (this.frozenFrameCount > this.MAX_FROZEN_FRAMES) {
-      return null;
-    }
-
-    return this.renderGlasses(
-      personImage,
-      glassesImage,
-      this.lastLandmarks,
-      fitProfile,
-      options
-    );
-  }
-
-  compositeResult(
-    personCanvas: HTMLCanvasElement | HTMLImageElement,
-    overlayCanvas: HTMLCanvasElement
-  ): HTMLCanvasElement {
-    const canvas = document.createElement('canvas');
-    canvas.width = overlayCanvas.width;
-    canvas.height = overlayCanvas.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return canvas;
-
-    ctx.drawImage(personCanvas, 0, 0);
-    ctx.drawImage(overlayCanvas, 0, 0);
-
-    return canvas;
+    if (this.frozenFrameCount > this.MAX_FROZEN_FRAMES) return null;
+    return this.renderGlasses(personImage, glassesImage, this.lastLandmarks, fitProfile, options);
   }
 }
