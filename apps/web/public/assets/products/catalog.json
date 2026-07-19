@@ -1,0 +1,95 @@
+{
+  "categories": [
+    {
+      "id": "eyewear",
+      "name": "Eyewear",
+      "description": "Glasses, sunglasses, and eye accessories"
+    },
+    {
+      "id": "hats",
+      "name": "Hats",
+      "description": "Caps, hats, and headwear"
+    },
+    {
+      "id": "shirts",
+      "name": "Shirts",
+      "description": "Tops, t-shirts, jackets"
+    },
+    {
+      "id": "pants",
+      "name": "Pants",
+      "description": "Trousers, shorts, bottom wear"
+    }
+  ],
+  "products": [
+    {
+      "id": "spects27_52_front",
+      "name": "SPECS27_52",
+      "brand": "SpecsCo",
+      "category": "eyewear",
+      "assetUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "thumbnailUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "description": "Classic rectangular frame design for everyday wear",
+      "price": 129.0,
+      "fitProfile": {
+        "anchorType": "eyes",
+        "widthMode": "interpupillary_distance",
+        "widthMultiplier": 2.3,
+        "verticalOffset": 0.02,
+        "rotationOffset": 0,
+        "imageContentBounds": {
+          "left": 0.06,
+          "top": 0.1,
+          "right": 0.94,
+          "bottom": 0.85
+        }
+      }
+    },
+    {
+      "id": "aviator_sunglasses",
+      "name": "Aviator Sunglasses",
+      "brand": "SunglassCo",
+      "category": "eyewear",
+      "assetUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "thumbnailUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "description": "Classic aviator style with UV protection",
+      "price": 199.0,
+      "fitProfile": {
+        "anchorType": "eyes",
+        "widthMode": "interpupillary_distance",
+        "widthMultiplier": 2.5,
+        "verticalOffset": 0.01,
+        "rotationOffset": 0,
+        "imageContentBounds": {
+          "left": 0.05,
+          "top": 0.08,
+          "right": 0.95,
+          "bottom": 0.88
+        }
+      }
+    },
+    {
+      "id": "baseball_cap",
+      "name": "Baseball Cap",
+      "brand": "SportyGear",
+      "category": "hats",
+      "assetUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "thumbnailUrl": "/assets/products/eyewear/SPECS27_52_Front_View.avif",
+      "description": "Sporty baseball cap for casual looks",
+      "price": 35.0,
+      "fitProfile": {
+        "anchorType": "forehead",
+        "widthMode": "face_width",
+        "widthMultiplier": 1.1,
+        "verticalOffset": -0.15,
+        "rotationOffset": 0,
+        "imageContentBounds": {
+          "left": 0.0,
+          "top": 0.0,
+          "right": 1.0,
+          "bottom": 1.0
+        }
+      }
+    }
+  ]
+}

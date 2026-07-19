@@ -160,7 +160,7 @@ async def upload_product_image(
     if not product:
         raise NotFoundError("Product", product_id)
 
-    allowed = {"image/jpeg", "image/png", "image/webp"}
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/avif"}
     if file.content_type not in allowed:
         raise ValidationError(f"Unsupported type: {file.content_type}. Use JPEG, PNG, or WebP.")
 

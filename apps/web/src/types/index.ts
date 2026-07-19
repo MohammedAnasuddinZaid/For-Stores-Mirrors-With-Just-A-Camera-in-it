@@ -9,6 +9,68 @@ export type ProductCategory =
   | 'SHOES'
   | 'OTHER';
 
+export type TryOnCategory = 'eyewear' | 'hats' | 'shirts' | 'pants';
+
+export interface FaceLandmarks {
+  leftEye: { x: number; y: number };
+  rightEye: { x: number; y: number };
+  eyeMidpoint: { x: number; y: number };
+  interpupillaryDistance: number;
+  eyeLineAngle: number;
+  noseBridge: { x: number; y: number };
+  noseTip: { x: number; y: number };
+  faceWidth: number;
+  faceHeight: number;
+  confidence: number;
+  imageWidth: number;
+  imageHeight: number;
+}
+
+export interface ImageContentBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface ProductFitProfile {
+  anchorType: 'eyes' | 'forehead' | 'torso';
+  widthMode: 'interpupillary_distance' | 'face_width' | 'shoulder_width';
+  widthMultiplier: number;
+  verticalOffset: number;
+  rotationOffset: number;
+  imageContentBounds: ImageContentBounds;
+}
+
+export interface CatalogCategory {
+  id: TryOnCategory;
+  name: string;
+  description: string;
+}
+
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  brand: string;
+  category: TryOnCategory;
+  assetUrl: string;
+  thumbnailUrl: string;
+  description: string;
+  price: number;
+  fitProfile: ProductFitProfile;
+}
+
+export interface CatalogData {
+  categories: CatalogCategory[];
+  products: CatalogProduct[];
+}
+
+export interface ProductCatalog {
+  getCategories(): CatalogCategory[];
+  getProductsByCategory(category: TryOnCategory): CatalogProduct[];
+  getProduct(id: string): CatalogProduct | undefined;
+}
+
 export type ProductStatus =
   | 'DRAFT'
   | 'PROCESSING'

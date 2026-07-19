@@ -19,6 +19,7 @@ SEED_PRODUCTS = [
     {"name": "Cargo Pants", "category": ProductCategory.LOWER_BODY, "brand": "CasualWear", "price": 69.0, "sku": "PNT-002", "status": ProductStatus.PUBLISHED},
     {"name": "Gold Hoops", "category": ProductCategory.JEWELRY, "brand": "Luxe", "price": 45.0, "sku": "JWL-001", "status": ProductStatus.PUBLISHED},
     {"name": "Running Shoes", "category": ProductCategory.SHOES, "brand": "SportyGear", "price": 159.0, "sku": "SHO-001", "status": ProductStatus.PUBLISHED},
+    {"name": "SPECS27_52 Front", "category": ProductCategory.GLASSES, "brand": "SpecsCo", "price": 129.0, "sku": "GLS-002", "status": ProductStatus.PUBLISHED},
 ]
 
 

@@ -68,8 +68,10 @@ class MockTryOnEngine:
             pos_x = (pw - target_w) // 2
             pos_y = int(ph * 0.1)
         elif category in ("GLASSES",):
-            target_w = int(pw * 0.42)
-            target_h = int(ph * 0.14)
+            ipd_estimate = pw * 0.15
+            glasses_ratio = garment.width / max(garment.height, 1)
+            target_w = int(ipd_estimate * 2.3)
+            target_h = int(target_w / glasses_ratio) if glasses_ratio > 0 else int(ph * 0.14)
             resized = garment.resize((target_w, target_h), Image.LANCZOS)
             pos_x = (pw - target_w) // 2
             pos_y = int(ph * 0.2)
